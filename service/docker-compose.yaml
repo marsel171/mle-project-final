@@ -1,0 +1,43 @@
+services:
+  # название сервиса 
+  main-app:  
+    # указываем путь к .env файлу с переменными окружения
+    env_file:
+      - ./.env
+    # собираем образ помощью Dockerfile
+    build:
+      dockerfile: Dockerfile_prometheus
+    # перенаправляем порты
+    # используем переменные из .env файла
+    ports:
+      - "${MAIN_APP_PORT_VM}:${MAIN_APP_PORT}"
+    # указываем тома
+    volumes:
+        # тип тома 
+      - type: bind
+        # директория на ВМ
+        source: ./models
+        # директория в контейнере
+        target: /churn_app_prometheus/models
+    hostname: fastapi_app
+
+  prometheus:
+    image: prom/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+    ports:
+      - "${PROMETHEUS_PORT_VM}:${PROMETHEUS_PORT}"
+    volumes:
+      - "./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml"
+    hostname: prometheus
+
+  grafana:
+    image: grafana/grafana
+    env_file:
+    - ./.env
+    ports:
+    - "${GRAFANA_PORT_VM}:${GRAFANA_PORT}"
+    environment:
+    - GF_SECURITY_ADMIN_USER=${GRAFANA_USER}
+    - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASS}
+    hostname: grafana
