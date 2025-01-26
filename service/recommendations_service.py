@@ -19,11 +19,16 @@ from utils import (
     standart_scaler,
     kmeans_parquet,
     ncodpers_dict,
+    products_catalog,
 )
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
 import logging
 from dotenv import load_dotenv
+
+from prometheus_fastapi_instrumentator import Instrumentator
+from prometheus_client import Histogram
+from prometheus_client import Counter
 
 load_dotenv()
 
@@ -64,6 +69,17 @@ async def lifespan(app: FastAPI):
 
 # создаём приложение FastAPI
 app = FastAPI(title="FastAPI-микросервис для выдачи рекомендаций", lifespan=lifespan)
+
+# Инициализируем и запускаем экпортёр метрик
+instrumentator = Instrumentator()
+instrumentator.instrument(app).expose(app)
+
+# Инициализация кастомной метрики-счетчика продуктов, которые были предсказаны клиенту
+METRIC = Counter(
+    "http_requested_products_total",
+    "Number of times a certain product has been requested.",
+    labelnames=["recs_blended_describe_ru"],
+)
 
 
 @app.post("/recommendations", name="Получение рекомендаций для клиента")
@@ -133,9 +149,20 @@ async def recommendations(ncodpers_dict: dict = ncodpers_dict, k: int = 5):
     # Оставляем только первые k-рекомендаций
     recs_blended = recs_blended[:k]
 
+    # Названия продуктов на русском языке
+    recs_blended_describe_ru = describe_by_name(recs_blended)
+
     # Список продуктов итогового рекоммендатора
     if recs_blended:
-        logging.info(f"Список итоговых рекомендаций: {describe_by_name(recs_blended)}")
+        logging.info(f"Список итоговых рекомендаций: {recs_blended_describe_ru}")
+        print(f"Список итоговых рекомендаций: {recs_blended_describe_ru}")
+
+    # Инкрементируем предсказанные продукты для вывода на дашборд
+    try:
+        for rec_des_ru in recs_blended_describe_ru:
+            METRIC.labels(rec_des_ru).inc()
+    except:
+        print("RUNNING WITHOUT PROMETHEUS")
 
     return {"recs": recs_blended}
 
@@ -230,25 +257,34 @@ async def get_online_kmeans(ncodpers_dict: dict = ncodpers_dict) -> dict:
         # Кодирование признаков согласно пайплайну кластеризации
         feature_cats_list = list(dict((w, ncodpers_dict[w]) for w in cat_cols).values())
         feature_nums_list = list(dict((w, ncodpers_dict[w]) for w in num_cols).values())
-        drop_res = one_hot_drop.transform([feature_cats_list])
-        scaler_res = standart_scaler.transform([feature_nums_list])
-        features_coded = list(scaler_res[0]) + list(drop_res[0])
+        br = 1
+        try:
+            drop_res = one_hot_drop.transform([feature_cats_list])
+        except:
+            br = 0
+        if br:
+            scaler_res = standart_scaler.transform([feature_nums_list])
+            features_coded = list(scaler_res[0]) + list(drop_res[0])
 
-        # Инференс
-        cluster_id = kmeans_model.predict([features_coded])
-        cluster_id = list(cluster_id)[0]
+            # Инференс
+            cluster_id = kmeans_model.predict([features_coded])
+            cluster_id = list(cluster_id)[0]
 
-        recs_id = kmeans_parquet[kmeans_parquet["labels"] == cluster_id][
-            "names"
-        ].to_list()
+            recs_id = kmeans_parquet[kmeans_parquet["labels"] == cluster_id][
+                "names"
+            ].to_list()
 
-        recs_scores = kmeans_parquet[kmeans_parquet["labels"] == cluster_id][
-            "score"
-        ].to_list()
+            recs_scores = kmeans_parquet[kmeans_parquet["labels"] == cluster_id][
+                "score"
+            ].to_list()
 
-        logging.info(f"Список онлайн-рекомендаций K-MEANS: ")
-        for x, y in zip(describe_by_name(recs_id), recs_scores):
-            logging.info(f"{x}, {y}")
+            logging.info(f"Список онлайн-рекомендаций K-MEANS: ")
+            for x, y in zip(describe_by_name(recs_id), recs_scores):
+                logging.info(f"{x}, {y}")
+        else:
+            logging.info(
+                f"Список онлайн-рекомендаций K-MEANS: []. Невозможный признак при OneHotEncoding!"
+            )
 
     else:
         logging.info(f"Список онлайн-рекомендаций K-MEANS: []")

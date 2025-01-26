@@ -259,7 +259,7 @@ FastAPI-микросервис в Docker-контейнере:
 
 cd ./service/
 docker image build . --tag final_project:0
-docker container run --publish 1702:1702 --env-file .env final_project:0
+docker container run --publish 1702:1702 --volume=./models:/app/models --env-file .env final_project:0
 
 6. Мониторинг. 
 
@@ -275,8 +275,25 @@ docker container run --publish 1702:1702 --env-file .env final_project:0
     cd ./service/
     python test_requests.py
 
+ - JSON-файл с дашбордом в Grafana:
+
+    Dashboard_grafana.json
+
+ - Скриншот дашборда после нескольких запусков test_requests.py:
+
+    dashboard_grafana.png
+
 Адреса сервисов:
 
 - микросервис: http://localhost:1702/
 - Prometheus: http://localhost:9090/
 - Grafana: http://localhost:3000/
+```
+
+## Итоговая реализованная схема работы сервиса
+
+![screenshot](service/Frame.jpg)
+
+## Состояние дашборда после нескольких запусков 
+
+![screenshot](service/dashboard_grafana.png)

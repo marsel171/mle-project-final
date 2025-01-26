@@ -1,37 +1,44 @@
 import requests
 import time
 import random
+import json
+
+with open("test_user.json") as f:
+    json_data = json.load(f)
 
 for i in range(100):
 
-    user_id = random.randint(1, 1000)
-    has_elevator = random.randint(0, 1)
-    floors_total = random.randint(1, 50)
+    ncodpers = random.randint(100000, 1000000)
+    age = random.randint(18, 60)
+    antiguedad = random.randint(1, 10)
+    cod_prov = random.randint(1, 100)
+    renta = random.randint(10000, 300000)
 
-    print(f"user_id: {user_id}")
-    print(f"has_elevator: {has_elevator}")
-    print(f"floors_total: {floors_total}")
+    print(f"ncodpers: {ncodpers}")
+    print(f"age: {age}")
+    print(f"antiguedad: {antiguedad}")
+    print(f"cod_prov: {cod_prov}")
+    print(f"renta: {renta}")
+
+    json_data["ncodpers"] = ncodpers
+    json_data["age"] = age
+    json_data["antiguedad"] = antiguedad
+    json_data["cod_prov"] = cod_prov
+    json_data["renta"] = renta
+
+    headers = {
+        "accept": "application/json",
+        "Content-Type": "application/json",
+    }
 
     params = {
-        "building_id": 6220,
-        "build_year": 1965,
-        "building_type_int": 6,
-        "latitude": 55.717113,
-        "longitude": 37.78112,
-        "ceiling_height": 2.64,
-        "flats_count": 84,
-        "floors_total": floors_total,
-        "has_elevator": has_elevator,
-        "floor": 9,
-        "kitchen_area": 9.9,
-        "living_area": 19.9,
-        "rooms": 1,
-        "is_apartment": 0,
-        "total_area": 35.099998,
+        "k": "5",
     }
 
     response = requests.post(
-        f"http://localhost:1702/api/churn/?user_id={user_id}", json=params
+        "http://0.0.0.0:1702/recommendations",
+        params=params,
+        json=json_data,
     )
 
     print(f"response: {response}")
@@ -40,3 +47,6 @@ for i in range(100):
         time.sleep(3)
 
     time.sleep(1)
+
+# cd ./service/
+# python test_requests.py

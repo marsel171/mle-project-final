@@ -6,7 +6,7 @@ services:
       - ./.env
     # собираем образ помощью Dockerfile
     build:
-      dockerfile: Dockerfile_prometheus
+      dockerfile: Dockerfile
     # перенаправляем порты
     # используем переменные из .env файла
     ports:
@@ -18,7 +18,7 @@ services:
         # директория на ВМ
         source: ./models
         # директория в контейнере
-        target: /churn_app_prometheus/models
+        target: /app/models
     hostname: fastapi_app
 
   prometheus:
@@ -41,3 +41,6 @@ services:
     - GF_SECURITY_ADMIN_USER=${GRAFANA_USER}
     - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASS}
     hostname: grafana
+
+# cd ./service/
+# docker compose up  --build
